@@ -1,1 +1,52 @@
 *.skb
+pragma solidity ^0.8.0;
+
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v4.2.0/contracts/token/ERC721/ERC721.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v4.2.0/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v4.2.0/contracts/access/Ownable.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v4.2.0/contracts/utils/math/SafeMath.sol";
+
+contract Terraformers is ERC721, ERC721Enumerable, Ownable {
+    using SafeMath for uint256;
+
+    uint256 public constant TOKEN_LIMIT = 10000; // NFT總量
+    uint256 public constant PURCHASE_LIMIT = 20; // 購買上限
+    uint256 public constant TOKEN_PRICE = 0.1 ether; // NFT價格
+    uint256 public constant DIVIDEND_RATE = 10; // 分紅比率
+    uint256 public constant MIN_HOLDING_COUNT = 15; // 最低持有數量
+
+    bool public saleIsActive = false; // 銷售是否開啟
+    mapping(address => uint256) private _balances; // 每個地址持有的NFT數量
+    mapping(address => bool) public eligible; // 是否符合參與分紅機制
+
+    struct Land {
+        uint256 initialPrice; // 初始價格
+        string imageUri; // 圖片
+        uint256 rentalFee; // 租賃費用
+        uint256 rentalDuration; // 租賃期限
+        uint256 rentedUntil; // 租賃到期时间
+        address tenant; // 租户地址
+    }
+
+    mapping(uint256 => Land) public lands;
+
+    constructor() ERC721("Terraformers", "TFM") {}
+
+    function mint(uint256 numberOfTokens) public payable {
+        require(saleIsActive, "Sale is not active"); // 銷售必須開啟
+        require(numberOfTokens > 0, "Number of tokens cannot be zero");
+        require(numberOfTokens <= PURCHASE_LIMIT, "Cannot purchase more than the purchase limit");
+        require(totalSupply().add(numberOfTokens) <= TOKEN_LIMIT, "Purchase would exceed token supply");
+        require(msg.value == numberOfTokens.mul(TOKEN_PRICE), "Ether value sent is not correct");
+
+        for (uint256 i = 0; i < numberOfTokens; i++) {
+            uint256 tokenId = totalSupply();
+            _safeMint(msg.sender, tokenId);
+            _balances[msg.sender] = _balances[msg.sender].add(1);
+
+            lands[tokenId] = Land({
+                initialPrice: TOKEN_PRICE,
+                imageUri: "",
+                rentalFee: 0,
+                rentalDuration: 0,
+                rentedUntil
